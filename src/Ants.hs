@@ -8,18 +8,26 @@ import Graphics.Gloss.Data.ViewPort
 import Control.Monad
 import System.Random
 
+data Role = Soldier | Worker | Gatherer
+            deriving (Enum, Show)
+
 data Ant = Ant { antPosition :: Point
-               , antHeading :: Float }
+               , antHeading :: Float
+               , antRole :: Role }
 
 data Ants = Ants { antsAnts :: [Ant] }
 
-antColor = makeColorI 175 239 239 255
 worldSize = 800.0
+
+roleColor :: Role -> Color
+roleColor Worker = makeColorI 175 239 239 255
+roleColor Soldier = makeColorI 239 175 175 255
+roleColor Gatherer = makeColorI 175 239 175 255
 
 renderAnt :: Ant -> Picture
 renderAnt ant = translate x y
                 $ rotate (-heading)
-                $ color antColor
+                $ color (roleColor $ antRole ant)
                 $ polygon ps
     where ps = [ (-10.0, 10.0)
                , (20.0, 0.0)
@@ -27,8 +35,6 @@ renderAnt ant = translate x y
                ]
           heading = antHeading ant
           (x, y) = antPosition ant
-
-
 
 updateAnt :: Float -> Ant -> Ant
 updateAnt deltaTime ant =
@@ -38,8 +44,10 @@ randomAnt :: IO Ant
 randomAnt = do x <- randomRIO (-worldSize, worldSize)
                y <- randomRIO (-worldSize, worldSize)
                heading <- randomRIO (0.0, 360.0)
+               role <- toEnum <$> randomRIO (0, 2)
                return $ Ant { antPosition = (x, y)
-                            , antHeading = heading }
+                            , antHeading = heading
+                            , antRole = role }
 
 initialAnts :: Int -> IO Ants
 initialAnts n = do ants <- replicateM n randomAnt
