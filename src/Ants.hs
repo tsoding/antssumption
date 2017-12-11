@@ -5,6 +5,8 @@ module Ants ( Ants
 
 import Graphics.Gloss
 import Graphics.Gloss.Data.ViewPort
+import Control.Monad
+import System.Random
 
 data Ant = Ant { antPosition :: Point
                , antHeading :: Float }
@@ -12,6 +14,7 @@ data Ant = Ant { antPosition :: Point
 data Ants = Ants { antsAnts :: [Ant] }
 
 antColor = makeColorI 175 239 239 255
+worldSize = 800.0
 
 renderAnt :: Ant -> Picture
 renderAnt ant = translate x y
@@ -29,13 +32,18 @@ renderAnt ant = translate x y
 
 updateAnt :: Float -> Ant -> Ant
 updateAnt deltaTime ant =
-    ant { antHeading = antHeading ant + 45.0 * deltaTime }
+    ant { antHeading = antHeading ant + 180 * deltaTime }
 
-initialAnts :: IO Ants
-initialAnts = return $ Ants {
-                antsAnts = [Ant { antPosition = (0.0, 0.0)
-                                , antHeading = 0.0 }]
-              }
+randomAnt :: IO Ant
+randomAnt = do x <- randomRIO (-worldSize, worldSize)
+               y <- randomRIO (-worldSize, worldSize)
+               heading <- randomRIO (0.0, 360.0)
+               return $ Ant { antPosition = (x, y)
+                            , antHeading = heading }
+
+initialAnts :: Int -> IO Ants
+initialAnts n = do ants <- replicateM n randomAnt
+                   return $ Ants { antsAnts = ants } -- ants
 
 renderAnts :: Ants -> Picture
 renderAnts = pictures . map renderAnt . antsAnts
