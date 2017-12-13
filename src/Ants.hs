@@ -21,7 +21,9 @@ data Role = Soldier | Worker | Gatherer
 data Ant = Ant { antPosition :: Point
                , antRole :: Role
                , antGoal :: Point
-               , antRoleStatistacs :: Map.Map Role Int }
+               , antRoleStatistacs :: Map.Map Role Int
+               , antCloseEnoughCount :: Int
+               }
 
 data Ants = Ants { antsAnts :: [Ant]
                  , antsStdGen :: StdGen }
@@ -38,8 +40,8 @@ roleColor Gatherer = makeColorI 175 239 175 255
 renderAnt :: Ant -> Picture
 renderAnt ant = translate x y
                 $ rotate (-heading)
-                $ color (roleColor $ antRole ant)
-                $ polygon ps
+                $ pictures [ color white $ scale textScale textScale $ text $ show $ antCloseEnoughCount ant
+                           , color (roleColor $ antRole ant) $ polygon ps ]
     where ps = [ (-10.0, 10.0)
                , (20.0, 0.0)
                , (-10.0, -10.0)
@@ -47,6 +49,7 @@ renderAnt ant = translate x y
           heading = radToDeg $ argV $ (position ! goal)
           position@(x, y) = antPosition ant
           goal = antGoal ant
+          textScale = 0.25
 
 (!) :: Point -> Point -> Vector
 (!) (x1, y1) (x2, y2) = (x2 - x1, y2 - y1)
@@ -59,8 +62,8 @@ x === y = unsafePerformIO $
     px <- F.newStablePtr x
     py <- F.newStablePtr y
     let ret = px == py
-    F.freeStablePtr px
-    F.freeStablePtr py
+    -- F.freeStablePtr px
+    -- F.freeStablePtr py
     return ret
 
 antCloseEnough :: Ant -> Ant -> Bool
@@ -73,7 +76,7 @@ nearbyAnts ant allAnts =
     $ filter (not . (=== ant)) allAnts
 
 switchAntRole :: [Ant] -> Ant -> Ant
-switchAntRole _ = id
+switchAntRole ants ant = ant { antCloseEnoughCount = length $ nearbyAnts ant ants }
 
 switchAntGoal :: Ant -> StdGen -> (StdGen, Ant)
 switchAntGoal ant g
@@ -106,6 +109,7 @@ randomAnt = do x <- randomRIO (-worldSize, worldSize)
                             , antRole = role
                             , antGoal = (x, y)
                             , antRoleStatistacs = Map.empty
+                            , antCloseEnoughCount = 0
                             }
 
 initialAnts :: Int -> IO Ants
