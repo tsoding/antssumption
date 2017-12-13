@@ -63,6 +63,7 @@ executable antssumption
   build-depends:       base >=4.9 && <4.10
                      , gloss
                      , random
+                     , containers
   
   -- Directories containing source files.
   hs-source-dirs:      src

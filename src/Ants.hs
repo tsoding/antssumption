@@ -3,6 +3,8 @@ module Ants ( Ants
             , updateAnts
             , renderAnts ) where
 
+import qualified Foreign as F
+import System.IO.Unsafe
 import Graphics.Gloss
 import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Data.Vector
@@ -11,18 +13,22 @@ import Control.Monad
 import System.Random
 import Debug.Trace
 
+import qualified Data.Map.Strict as Map
+
 data Role = Soldier | Worker | Gatherer
             deriving (Enum, Show)
 
 data Ant = Ant { antPosition :: Point
                , antRole :: Role
-               , antGoal :: Point }
+               , antGoal :: Point
+               , antRoleStatistacs :: Map.Map Role Int }
 
 data Ants = Ants { antsAnts :: [Ant]
                  , antsStdGen :: StdGen }
 
 worldSize = 800.0
 antSpeed = 100.0
+closeEnoughRange = 100.0
 
 roleColor :: Role -> Color
 roleColor Worker = makeColorI 175 239 239 255
@@ -48,19 +54,49 @@ renderAnt ant = translate x y
 (|+|) :: Vector -> Vector -> Vector
 (|+|) (x1, y1) (x2, y2) = (x2 + x1, y2 + y1)
 
-updateAnt :: Float -> StdGen -> Ant -> (Ant, StdGen)
-updateAnt deltaTime g ant
+x === y = unsafePerformIO $
+  do
+    px <- F.newStablePtr x
+    py <- F.newStablePtr y
+    let ret = px == py
+    F.freeStablePtr px
+    F.freeStablePtr py
+    return ret
+
+antCloseEnough :: Ant -> Ant -> Bool
+antCloseEnough ant1 ant2 =
+    magV (antPosition ant1 ! antPosition ant2) <= closeEnoughRange
+
+nearbyAnts :: Ant -> [Ant] -> [Ant]
+nearbyAnts ant allAnts =
+    filter (antCloseEnough ant)
+    $ filter (not . (=== ant)) allAnts
+
+switchAntRole :: [Ant] -> Ant -> Ant
+switchAntRole _ = id
+
+switchAntGoal :: Ant -> StdGen -> (StdGen, Ant)
+switchAntGoal ant g
     | magV distance < 10.0 =
         let (x, g1) = randomR (-worldSize, worldSize) g
             (y, g2) = randomR (-worldSize, worldSize) g1
-        in ( ant { antGoal = (x, y) }
-           , g2 )
-    | otherwise =
-        let heading = argV distance
-            position = antPosition ant
-        in ( ant { antPosition = position |+| (mulSV (antSpeed * deltaTime) $ unitVectorAtAngle heading) }
-           , g )
+        in ( g2, ant { antGoal = (x, y) } )
+    | otherwise = (g, ant)
     where distance = (antPosition ant) ! (antGoal ant)
+
+stepAnt :: Float -> Ant -> Ant
+stepAnt deltaTime ant = ant { antPosition = position |+| step }
+    where position = antPosition ant
+          goal = antGoal ant
+          heading = argV distance
+          distance = position ! goal
+          step = mulSV (antSpeed * deltaTime) $ unitVectorAtAngle heading
+
+updateAnt :: Ant -> Float -> StdGen -> [Ant] -> (StdGen, Ant)
+updateAnt ant deltaTime g allAnts =
+    fmap (switchAntRole allAnts)
+    $ fmap (stepAnt deltaTime)
+    $ switchAntGoal ant g
 
 randomAnt :: IO Ant
 randomAnt = do x <- randomRIO (-worldSize, worldSize)
@@ -68,7 +104,9 @@ randomAnt = do x <- randomRIO (-worldSize, worldSize)
                role <- toEnum <$> randomRIO (0, 2)
                return $ Ant { antPosition = (x, y)
                             , antRole = role
-                            , antGoal = (x, y) }
+                            , antGoal = (x, y)
+                            , antRoleStatistacs = Map.empty
+                            }
 
 initialAnts :: Int -> IO Ants
 initialAnts n = do ants <- replicateM n randomAnt
@@ -79,10 +117,10 @@ renderAnts :: Ants -> Picture
 renderAnts = pictures . map renderAnt . antsAnts
 
 updateAnts :: ViewPort -> Float -> Ants -> Ants
-updateAnts _ deltaTime state = let (ants', gp) = foldl (\(ants, g) ant ->
-                                                            let (ant', g') = updateAnt deltaTime g ant
-                                                            in ((ant':ants), g'))
-                                                       ([], antsStdGen state)
+updateAnts _ deltaTime state = let (gp, ants') = foldl (\(g, ants) ant ->
+                                                            let (g', ant') = updateAnt ant deltaTime g (antsAnts state)
+                                                            in (g', (ant':ants)))
+                                                       (antsStdGen state, [])
                                                        (antsAnts state)
                                in state { antsAnts = ants'
                                         , antsStdGen = gp }
