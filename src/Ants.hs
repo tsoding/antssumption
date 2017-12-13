@@ -18,7 +18,8 @@ import qualified Data.Map.Strict as Map
 data Role = Soldier | Worker | Gatherer
             deriving (Enum, Show)
 
-data Ant = Ant { antPosition :: Point
+data Ant = Ant { antId :: Int
+               , antPosition :: Point
                , antRole :: Role
                , antGoal :: Point
                , antRoleStatistacs :: Map.Map Role Int
@@ -73,7 +74,7 @@ antCloseEnough ant1 ant2 =
 nearbyAnts :: Ant -> [Ant] -> [Ant]
 nearbyAnts ant allAnts =
     filter (antCloseEnough ant)
-    $ filter (not . (=== ant)) allAnts
+    $ filter (\x -> antId x /= antId ant) allAnts
 
 switchAntRole :: [Ant] -> Ant -> Ant
 switchAntRole ants ant = ant { antCloseEnoughCount = length $ nearbyAnts ant ants }
@@ -105,15 +106,19 @@ randomAnt :: IO Ant
 randomAnt = do x <- randomRIO (-worldSize, worldSize)
                y <- randomRIO (-worldSize, worldSize)
                role <- toEnum <$> randomRIO (0, 2)
-               return $ Ant { antPosition = (x, y)
+               return $ Ant { antId = 0
+                            , antPosition = (x, y)
                             , antRole = role
                             , antGoal = (x, y)
                             , antRoleStatistacs = Map.empty
                             , antCloseEnoughCount = 0
                             }
 
+identifyAnt :: Int -> Ant -> Ant
+identifyAnt id ant = ant { antId = id }
+
 initialAnts :: Int -> IO Ants
-initialAnts n = do ants <- replicateM n randomAnt
+initialAnts n = do ants <- zipWith identifyAnt [1 .. n] <$> replicateM n randomAnt
                    return $ Ants { antsAnts = ants
                                  , antsStdGen = mkStdGen 42 }
 
