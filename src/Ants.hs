@@ -4,6 +4,8 @@ module Ants ( Ants
             , renderAnts ) where
 
 import qualified Foreign as F
+import Data.List
+import Data.Function
 import System.IO.Unsafe
 import Graphics.Gloss
 import Graphics.Gloss.Data.ViewPort
@@ -35,15 +37,15 @@ antSpeed = 100.0
 closeEnoughRange = 100.0
 
 roleColor :: Role -> Color
-roleColor Worker = makeColorI 175 239 239 255
-roleColor Soldier = makeColorI 239 175 175 255
-roleColor Gatherer = makeColorI 175 239 175 255
+roleColor Worker = makeColorI 100 239 239 255
+roleColor Soldier = makeColorI 239 100 100 255
+roleColor Gatherer = makeColorI 100 239 100 255
 
 renderAnt :: Ant -> Picture
 renderAnt ant = translate x y
                 $ rotate (-heading)
-                $ pictures [ color white $ scale textScale textScale $ text $ show $ Set.size $ antNearbyAnts ant
-                           , color (roleColor $ antRole ant) $ polygon ps ]
+                $ pictures [ -- color white $ scale textScale textScale $ text $ show $ Set.size $ antNearbyAnts ant
+                            color (roleColor $ antRole ant) $ polygon ps ]
     where ps = [ (-10.0, 10.0)
                , (20.0, 0.0)
                , (-10.0, -10.0)
@@ -53,20 +55,14 @@ renderAnt ant = translate x y
           goal = antGoal ant
           textScale = 0.25
 
+initStats :: Map.Map Role Int
+initStats = Map.fromList $ zip (map toEnum [0 .. 2]) $ cycle [0]
+
 (!) :: Point -> Point -> Vector
 (!) (x1, y1) (x2, y2) = (x2 - x1, y2 - y1)
 
 (|+|) :: Vector -> Vector -> Vector
 (|+|) (x1, y1) (x2, y2) = (x2 + x1, y2 + y1)
-
-x === y = unsafePerformIO $
-  do
-    px <- F.newStablePtr x
-    py <- F.newStablePtr y
-    let ret = px == py
-    -- F.freeStablePtr px
-    -- F.freeStablePtr py
-    return ret
 
 antCloseEnough :: Ant -> Ant -> Bool
 antCloseEnough ant1 ant2 =
@@ -88,8 +84,21 @@ updateAntStats ant nextNearbyAnts = ant { antNearbyAnts = Set.map antId nextNear
     where nearbyAntIds = antNearbyAnts ant
           newAnts = Set.filter (\x -> not $ Set.member (antId x) nearbyAntIds) nextNearbyAnts
 
+updateRoleByStats :: Ant -> Ant
+updateRoleByStats ant = ant { antRole = nextRole }
+    where nextRole = case sortBy (compare `on` snd) $ Map.toList stats of
+                       (role, count):_ -> if (n > 0) && (fromIntegral count / fromIntegral n < 0.10)
+                                          then role
+                                          else antRole ant
+                       _ -> antRole ant
+          stats = antRoleStatistacs ant
+          n = sum $ map snd $ Map.toList stats
+
 switchAntRole :: [Ant] -> Ant -> Ant
-switchAntRole ants ant = updateAntStats ant $ Set.fromList $ nearbyAnts ant ants
+switchAntRole ants ant = updateRoleByStats
+                         $ updateAntStats ant
+                         $ Set.fromList
+                         $ nearbyAnts ant ants
 
 switchAntGoal :: Ant -> StdGen -> (StdGen, Ant)
 switchAntGoal ant g
@@ -117,12 +126,12 @@ updateAnt ant deltaTime g allAnts =
 randomAnt :: IO Ant
 randomAnt = do x <- randomRIO (-worldSize, worldSize)
                y <- randomRIO (-worldSize, worldSize)
-               role <- toEnum <$> randomRIO (0, 2)
+               -- role <- toEnum <$> randomRIO (0, 2)
                return $ Ant { antId = 0
                             , antPosition = (x, y)
-                            , antRole = role
+                            , antRole = Gatherer
                             , antGoal = (x, y)
-                            , antRoleStatistacs = Map.empty
+                            , antRoleStatistacs = initStats
                             , antNearbyAnts = Set.empty
                             }
 
