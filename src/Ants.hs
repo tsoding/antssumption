@@ -78,7 +78,8 @@ nearbyAnts ant allAnts =
     $ filter (\x -> antId x /= antId ant) allAnts
 
 updateStats :: Map.Map Role Int -> Set.Set Ant -> Map.Map Role Int
-updateStats = undefined
+updateStats stats newAnts = foldl (\accStats ant -> Map.insertWith (+) (antRole ant) 1 accStats) stats
+                            $ Set.toList newAnts
 
 updateAntStats :: Ant -> Set.Set Ant -> Ant
 updateAntStats ant nextNearbyAnts = ant { antNearbyAnts = Set.map antId nextNearbyAnts
