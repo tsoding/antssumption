@@ -50,7 +50,7 @@ renderAnt ant = translate x y
 
 updateAnt :: Float -> StdGen -> Ant -> (Ant, StdGen)
 updateAnt deltaTime g ant
-    | magV distance < 1e-3 =
+    | magV distance < 10.0 =
         let (x, g1) = randomR (-worldSize, worldSize) g
             (y, g2) = randomR (-worldSize, worldSize) g1
         in ( ant { antGoal = (x, y)
