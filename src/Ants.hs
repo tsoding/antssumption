@@ -14,17 +14,18 @@ import System.Random
 import Debug.Trace
 
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 
 data Role = Soldier | Worker | Gatherer
-            deriving (Enum, Show)
+            deriving (Enum, Show, Eq, Ord)
 
 data Ant = Ant { antId :: Int
                , antPosition :: Point
                , antRole :: Role
                , antGoal :: Point
                , antRoleStatistacs :: Map.Map Role Int
-               , antCloseEnoughCount :: Int
-               }
+               , antNearbyAnts :: Set.Set Int
+               } deriving (Eq, Ord)
 
 data Ants = Ants { antsAnts :: [Ant]
                  , antsStdGen :: StdGen }
@@ -41,7 +42,7 @@ roleColor Gatherer = makeColorI 175 239 175 255
 renderAnt :: Ant -> Picture
 renderAnt ant = translate x y
                 $ rotate (-heading)
-                $ pictures [ color white $ scale textScale textScale $ text $ show $ antCloseEnoughCount ant
+                $ pictures [ color white $ scale textScale textScale $ text $ show $ Set.size $ antNearbyAnts ant
                            , color (roleColor $ antRole ant) $ polygon ps ]
     where ps = [ (-10.0, 10.0)
                , (20.0, 0.0)
@@ -76,8 +77,18 @@ nearbyAnts ant allAnts =
     filter (antCloseEnough ant)
     $ filter (\x -> antId x /= antId ant) allAnts
 
+updateStats :: Map.Map Role Int -> Set.Set Ant -> Map.Map Role Int
+updateStats = undefined
+
+updateAntStats :: Ant -> Set.Set Ant -> Ant
+updateAntStats ant nextNearbyAnts = ant { antNearbyAnts = Set.map antId nextNearbyAnts
+                                        , antRoleStatistacs = updateStats (antRoleStatistacs ant) newAnts
+                                        }
+    where nearbyAntIds = antNearbyAnts ant
+          newAnts = Set.filter (\x -> not $ Set.member (antId x) nearbyAntIds) nextNearbyAnts
+
 switchAntRole :: [Ant] -> Ant -> Ant
-switchAntRole ants ant = ant { antCloseEnoughCount = length $ nearbyAnts ant ants }
+switchAntRole ants ant = updateAntStats ant $ Set.fromList $ nearbyAnts ant ants
 
 switchAntGoal :: Ant -> StdGen -> (StdGen, Ant)
 switchAntGoal ant g
@@ -111,7 +122,7 @@ randomAnt = do x <- randomRIO (-worldSize, worldSize)
                             , antRole = role
                             , antGoal = (x, y)
                             , antRoleStatistacs = Map.empty
-                            , antCloseEnoughCount = 0
+                            , antNearbyAnts = Set.empty
                             }
 
 identifyAnt :: Int -> Ant -> Ant
