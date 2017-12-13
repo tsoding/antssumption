@@ -15,7 +15,6 @@ data Role = Soldier | Worker | Gatherer
             deriving (Enum, Show)
 
 data Ant = Ant { antPosition :: Point
-               , antHeading :: Float
                , antRole :: Role
                , antGoal :: Point }
 
@@ -39,8 +38,9 @@ renderAnt ant = translate x y
                , (20.0, 0.0)
                , (-10.0, -10.0)
                ]
-          heading = radToDeg $ antHeading ant
-          (x, y) = antPosition ant
+          heading = radToDeg $ argV $ (position ! goal)
+          position@(x, y) = antPosition ant
+          goal = antGoal ant
 
 (!) :: Point -> Point -> Vector
 (!) (x1, y1) (x2, y2) = (x2 - x1, y2 - y1)
@@ -53,24 +53,20 @@ updateAnt deltaTime g ant
     | magV distance < 10.0 =
         let (x, g1) = randomR (-worldSize, worldSize) g
             (y, g2) = randomR (-worldSize, worldSize) g1
-        in ( ant { antGoal = (x, y)
-                 , antHeading = argV ((antPosition ant) ! (traceShowId (x, y))) }
+        in ( ant { antGoal = (x, y) }
            , g2 )
     | otherwise =
         let heading = argV distance
             position = antPosition ant
-        in ( ant { antPosition = position |+| (mulSV (antSpeed * deltaTime) $ unitVectorAtAngle heading)
-                 , antHeading = heading }
+        in ( ant { antPosition = position |+| (mulSV (antSpeed * deltaTime) $ unitVectorAtAngle heading) }
            , g )
     where distance = (antPosition ant) ! (antGoal ant)
 
 randomAnt :: IO Ant
 randomAnt = do x <- randomRIO (-worldSize, worldSize)
                y <- randomRIO (-worldSize, worldSize)
-               heading <- randomRIO (0.0, 2 * pi)
                role <- toEnum <$> randomRIO (0, 2)
                return $ Ant { antPosition = (x, y)
-                            , antHeading = heading
                             , antRole = role
                             , antGoal = (x, y) }
 

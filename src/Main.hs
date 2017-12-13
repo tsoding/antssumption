@@ -4,7 +4,7 @@ import Graphics.Gloss
 import Ants
 
 main :: IO ()
-main = do ants <- initialAnts 1000
+main = do ants <- initialAnts 100
           simulate (InWindow "Antssumption" (800, 600) (10, 10))
                    (makeColorI 33 33 33 255)
                    30
